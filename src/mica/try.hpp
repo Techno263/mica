@@ -3,18 +3,35 @@
 #include <expected>
 #include <mica/macro.hpp>
 #include <mica/type_traits.hpp>
+#include <type_traits>
 #include <utility>
 
-#define _MICA_INTERNAL_TRY(result, expr, tmp_exp_var) \
+#define _MICA_INTERNAL_TRY(result_, expr_, tmp_exp_var_) \
 do { \
-    auto&& tmp_exp_var = (expr); \
-    static_assert(is_expected_v<decltype(tmp_exp_var)>); \
-    static_assert(std::is_same<std::remove_reference_t<decltype(result)>, decltype(tmp_exp_var)::value_type>); \
-    if (!tmp_exp_var.has_error()) [[unlikely]] { \
-        return std::unexpected(std::move(tmp_exp_var).error()); \
+    auto&& tmp_exp_var_ = (expr_); \
+    static_assert(mica::is_expected_v<std::remove_reference_t<decltype(tmp_exp_var_)>>); \
+    static_assert(std::is_same_v< \
+        std::remove_reference_t<decltype(result_)>, \
+        std::remove_reference_t<decltype(tmp_exp_var_)>::value_type> \
+    ); \
+    if (!tmp_exp_var_.has_value()) [[unlikely]] { \
+        return std::unexpected(std::move(tmp_exp_var_).error()); \
     } \
-    result = std::move(tmp_exp_var).value(); \
+    result_ = std::move(tmp_exp_var_).value(); \
 } while (0)
 
-#define MICA_TRY(result, expr) \
-    _MICA_INTERNAL_TRY(result, expr, MICA_TMP_VAR_DEFAULT)
+#define MICA_TRY(result_, expr_) \
+    _MICA_INTERNAL_TRY(result_, expr_, MICA_TMP_VAR_DEFAULT)
+
+#define _MICA_INTERNAL_TRY_VOID(expr_, tmp_exp_var_) \
+do { \
+    auto&& tmp_exp_var_ = (expr_); \
+    static_assert(mica::is_expected_v<std::remove_reference_t<decltype(tmp_exp_var_)>>); \
+    static_assert(std::is_void_v<std::remove_reference_t<decltype(tmp_exp_var_)>::value_type>); \
+    if (!tmp_exp_var_.has_value()) [[unlikely]] { \
+        return std::unexpected(std::move(tmp_exp_var_).error()); \
+    } \
+} while (0)
+
+#define MICA_TRY_VOID(expr_) \
+    _MICA_INTERNAL_TRY_VOID(expr_, MICA_TMP_VAR_DEFAULT)

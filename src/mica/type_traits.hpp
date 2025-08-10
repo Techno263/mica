@@ -13,7 +13,7 @@ template<typename T, typename E>
 struct is_expected<std::expected<T, E>> : std::true_type
 {};
 
-template<typename T, typename E>
-constexpr bool is_expected_v = is_expected<T, E>::value;
+template<typename T>
+constexpr bool is_expected_v = is_expected<T>::value;
 
 } // namespace mica

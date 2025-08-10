@@ -1,10 +1,10 @@
 #pragma once
 
-#define _MICA_INTERNAL_CONCAT(a, b) a##b
+#define _MICA_INTERNAL_CONCAT(a_, b_) a_##b_
 
-#define MICA_CONCAT(a, b) _MICA_INTERNAL_CONCAT(a, b)
+#define MICA_CONCAT(a_, b_) _MICA_INTERNAL_CONCAT(a_, b_)
 
-#define MICA_TMP_VAR(prefix) MICA_CONCAT(prefix, __LINE__)
+#define MICA_TMP_VAR(prefix_) MICA_CONCAT(prefix_, __LINE__)
 
 #define MICA_TMP_VAR_PREFIX _temporary__variable__
 
