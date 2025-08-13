@@ -1,5 +1,6 @@
 set(MICA_UNITTEST_SOURCES
     make_noexcept_test.cpp
+    try_test.cpp
 )
 
 prepend_paths(

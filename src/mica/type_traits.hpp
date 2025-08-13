@@ -18,22 +18,22 @@ struct is_expected<std::expected<T, E>> : std::true_type
 template<typename T>
 constexpr bool is_expected_v = is_expected<T>::value;
 
-template<typename T, typename = void>
-struct is_char_type : std::false_type
-{};
-
 template<typename T>
-struct is_char_type<T, std::void_t<typename std::char_traits<T>::char_type>> : std::true_type
-{};
-
-template<typename T>
-constexpr bool is_char_type_v = is_char_type<T>::value;
-
-template<typename CharT, std::size_t N>
-struct is_string_literal<const CharT (&)[N]> : std::bool_constant<is_char_type<CharT>::value>
+struct is_string_literal : std::false_type
 {};
 
 template<typename CharT, std::size_t N>
-constexpr bool is_string_literal_v = is_string_literal<CharT, N>::value;
+struct is_string_literal<const CharT(&)[N]>
+    : std::bool_constant<std::disjunction_v<
+        std::is_same<CharT, char>,
+        std::is_same<CharT, wchar_t>,
+        std::is_same<CharT, char8_t>,
+        std::is_same<CharT, char16_t>,
+        std::is_same<CharT, char32_t>
+    >>
+{};
+
+template<typename T>
+constexpr bool is_string_literal_v = is_string_literal<T>::value;
 
 } // namespace mica
