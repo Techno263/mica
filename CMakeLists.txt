@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 4.0.0)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
-set(MICA_VERSION "0.0.1")
+set(MICA_VERSION "0.0.2")
 
 option(MICA_TESTS "Build test executable")
 

@@ -36,4 +36,7 @@ struct is_string_literal<const CharT(&)[N]>
 template<typename T>
 constexpr bool is_string_literal_v = is_string_literal<T>::value;
 
+//template<typename T>
+//struct is_noncapturing_lambda
+
 } // namespace mica

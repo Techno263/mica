@@ -1,23 +1,32 @@
 #include <exception>
+#include <functional>
+#include <functional>
+#include <type_traits>
 #include <utility>
 
 namespace mica {
 
-// Handle free functions with return value
+// Handle free functions
 template<auto Func, typename... Args>
-requires (
-    std::is_pointer_v<decltype(Func)>
-    && std::is_function_v<std::remove_pointer_t<decltype(Func)>>
-    && std::is_invocable_v<decltype(Func), Args...>
-    && !std::is_nothrow_invocable_v<decltype(Func), Args...>
-    && !std::is_void_v<std::invoke_result_t<decltype(Func), Args...>>
+requires(
+    std::invocable<decltype(Func), Args...>
 )
 constexpr
 std::expected<std::invoke_result_t<decltype(Func), Args...>, std::string>
 make_noexcept(Args&&... args) noexcept
 {
+    static_assert(
+        !std::is_nothrow_invocable_v<decltype(Func), Args...>,
+        "It is unnecessary to wrap a noexcept function with make_noexcept"
+    );
+    using R = std::invoke_result_t<decltype(Func), Args...>;
     try {
-        return Func(std::forward<Args>(args)...);
+        if constexpr (std::is_void_v<R>) {
+            std::invoke(Func, std::forward<Args>(args)...);
+            return std::expected<R, std::string>();
+        } else {
+            return std::invoke(Func, std::forward<Args>(args)...);
+        }
     } catch (const std::exception& e) {
         return std::unexpected(e.what());
     } catch (...) {
@@ -25,44 +34,27 @@ make_noexcept(Args&&... args) noexcept
     }
 }
 
-// Handle free functions with void return
-template<auto Func, typename... Args>
-requires (
-    std::is_pointer_v<decltype(Func)>
-    && std::is_function_v<std::remove_pointer_t<decltype(Func)>>
-    && std::is_invocable_v<decltype(Func), Args...>
-    && !std::is_nothrow_invocable_v<decltype(Func), Args...>
-    && std::is_void_v<std::invoke_result_t<decltype(Func), Args...>>
-)
-constexpr
-std::expected<std::invoke_result_t<decltype(Func), Args...>, std::string>
-make_noexcept(Args&&... args) noexcept
-{
-    try {
-        Func(std::forward<Args>(args)...);
-        return std::expected<void, std::string>();
-    } catch (const std::exception& e) {
-        return std::unexpected(e.what());
-    } catch (...) {
-        return std::unexpected("unexpected error");
-    }
-}
-
-// Handle member functions with return value
+// Handle member function pointers
 template<auto Func, typename T, typename... Args>
 requires (
-    std::is_member_function_pointer_v<decltype(Func)>
-    && std::is_invocable_v<decltype(Func), T, Args...>
-    && !std::is_nothrow_invocable_v<decltype(Func), T, Args...>
-    && !std::is_pointer_v<std::remove_reference_t<T>>
-    && !std::is_void_v<std::invoke_result_t<decltype(Func), T, Args...>>
+    std::invocable<decltype(Func), T&&, Args&&...>
 )
 constexpr
-std::expected<std::invoke_result_t<decltype(Func), T, Args...>, std::string>
+std::expected<std::invoke_result_t<decltype(Func), T&&, Args&&...>, std::string>
 make_noexcept(T&& obj, Args&&... args) noexcept
 {
+    static_assert(
+        !std::is_nothrow_invocable_v<decltype(Func), T&&, Args&&...>,
+        "It is unnecessary to wrap a noexcept member function with make_noexcept"
+    );
+    using R = std::invoke_result_t<decltype(Func), T&&, Args&&...>;
     try {
-        return (std::forward<T>(obj).*Func)(std::forward<Args>(args)...);
+        if constexpr (std::is_void_v<R>) {
+            std::invoke(Func, std::forward<T>(obj), std::forward<Args>(args)...);
+            return std::expected<R, std::string>();
+        } else {
+            return std::invoke(Func, std::forward<T>(obj), std::forward<Args>(args)...);
+        }
     } catch (const std::exception& e) {
         return std::unexpected(e.what());
     } catch (...) {
@@ -70,123 +62,26 @@ make_noexcept(T&& obj, Args&&... args) noexcept
     }
 }
 
-// Handle member functions with void return
-template<auto Func, typename T, typename... Args>
-requires (
-    std::is_member_function_pointer_v<decltype(Func)>
-    && std::is_invocable_v<decltype(Func), T, Args...>
-    && !std::is_nothrow_invocable_v<decltype(Func), T, Args...>
-    && !std::is_pointer_v<std::remove_reference_t<T>>
-    && std::is_void_v<std::invoke_result_t<decltype(Func), T, Args...>>
-)
-constexpr
-std::expected<std::invoke_result_t<decltype(Func), T, Args...>, std::string>
-make_noexcept(T&& obj, Args&&... args) noexcept
-{
-    try {
-        (std::forward<T>(obj).*Func)(std::forward<Args>(args)...);
-        return std::expected<void, std::string>();
-    } catch (const std::exception& e) {
-        return std::unexpected(e.what());
-    } catch (...) {
-        return std::unexpected("unexpected error");
-    }
-}
-
-// Handle member functions with obj pointer and return value
-template<auto Func, typename T, typename... Args>
-requires (
-    std::is_member_function_pointer_v<decltype(Func)>
-    && std::is_invocable_v<decltype(Func), T, Args...>
-    && !std::is_nothrow_invocable_v<decltype(Func), T, Args...>
-    && std::is_pointer_v<std::remove_reference_t<T>>
-)
-constexpr
-std::expected<std::invoke_result_t<decltype(Func), T, Args...>, std::string>
-make_noexcept(T&& obj, Args&&... args) noexcept
-{
-    return make_noexcept<Func>(*std::forward<T>(obj), std::forward<Args>(args)...);
-}
-
-// Handle non-capturing lambdas with return value
-template<auto Lambda, typename... Args>
-requires (
-    !std::is_pointer_v<decltype(Lambda)>
-    && !std::is_function_v<decltype(Lambda)>
-    && std::is_invocable_v<decltype(Lambda), Args...>
-    && !std::is_nothrow_invocable_v<decltype(Lambda), Args...>
-    && !std::is_void_v<std::invoke_result_t<decltype(Lambda), Args...>>
-)
-std::expected<std::invoke_result_t<decltype(Lambda), Args...>, std::string>
-make_noexcept(Args&&... args) noexcept
-{
-    try {
-        return Lambda(std::forward<Args>(args)...);
-    } catch (const std::exception& e) {
-        return std::unexpected(e.what());
-    } catch (...) {
-        return std::unexpected("unexpected error");
-    }
-}
-
-// Handle non-capturing lambdas with void return
-template<auto Lambda, typename... Args>
-requires (
-    !std::is_pointer_v<decltype(Lambda)>
-    && !std::is_function_v<decltype(Lambda)>
-    && std::is_invocable_v<decltype(Lambda), Args...>
-    && !std::is_nothrow_invocable_v<decltype(Lambda), Args...>
-    && std::is_void_v<std::invoke_result_t<decltype(Lambda), Args...>>
-)
-std::expected<std::invoke_result_t<decltype(Lambda), Args...>, std::string>
-make_noexcept(Args&&... args) noexcept
-{
-    try {
-        Lambda(std::forward<Args>(args)...);
-        return std::expected<void, std::string>();
-    } catch (const std::exception& e) {
-        return std::unexpected(e.what());
-    } catch (...) {
-        return std::unexpected("unexpected error");
-    }
-}
-
-// Handle capturing lambdas with return value
 template<typename Lambda, typename... Args>
-requires (
-    !std::is_pointer_v<Lambda>
-    && !std::is_function_v<Lambda>
-    && std::is_invocable_v<Lambda, Args...>
-    && !std::is_nothrow_invocable_v<Lambda, Args...>
-    && !std::is_void_v<std::invoke_result_t<Lambda, Args...>>
+requires(
+    std::invocable<Lambda, Args&&...>
 )
-std::expected<std::invoke_result_t<Lambda, Args...>, std::string>
+constexpr
+std::expected<std::invoke_result_t<Lambda, Args&&...>, std::string>
 make_noexcept(Lambda&& lambda, Args&&... args) noexcept
 {
+    static_assert(
+        !std::is_nothrow_invocable_v<Lambda, Args&&...>,
+        "It is unnecessary to wrap a noexcept lambda with make_noexcept"
+    );
+    using R = std::invoke_result_t<Lambda, Args&&...>;
     try {
-        return std::forward<Lambda>(lambda)(std::forward<Args>(args)...);
-    } catch (const std::exception& e) {
-        return std::unexpected(e.what());
-    } catch (...) {
-        return std::unexpected("unexpected error");
-    }
-}
-
-// Handle capturing lambdas with void return
-template<typename Lambda, typename... Args>
-requires (
-    !std::is_pointer_v<Lambda>
-    && !std::is_function_v<Lambda>
-    && std::is_invocable_v<Lambda, Args...>
-    && !std::is_nothrow_invocable_v<Lambda, Args...>
-    && std::is_void_v<std::invoke_result_t<Lambda, Args...>>
-)
-std::expected<std::invoke_result_t<Lambda, Args...>, std::string>
-make_noexcept(Lambda&& lambda, Args&&... args) noexcept
-{
-    try {
-        std::forward<Lambda>(lambda)(std::forward<Args>(args)...);
-        return std::expected<void, std::string>();
+        if constexpr (std::is_void_v<R>) {
+            std::invoke(std::forward<Lambda>(lambda), std::forward<Args>(args)...);
+            return std::expected<R, std::string>();
+        } else {
+            return std::invoke(std::forward<Lambda>(lambda), std::forward<Args>(args)...);
+        }
     } catch (const std::exception& e) {
         return std::unexpected(e.what());
     } catch (...) {
