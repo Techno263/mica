@@ -1,4 +1,5 @@
 set(MICA_UNITTEST_SOURCES
+    format_test.cpp
     make_noexcept_capturing_lambda_test.cpp
     make_noexcept_free_function_test.cpp
     make_noexcept_member_function_test.cpp
